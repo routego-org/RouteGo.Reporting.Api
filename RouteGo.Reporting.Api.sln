@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RouteGo.Reporting.Api", "RouteGo.Reporting.Api\RouteGo.Reporting.Api.csproj", "{E1BA0324-DBF7-4411-B75F-28DEF5820479}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RouteGo.Reporting.Api.Tests", "RouteGo.Reporting.Api.Tests\RouteGo.Reporting.Api.Tests.csproj", "{A93B88D2-8787-4B9C-A583-B52FBCC78B47}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RouteGo.Reporting.Api.AppHost", "RouteGo.Reporting.Api.AppHost\RouteGo.Reporting.Api.AppHost.csproj", "{EFB41D7A-FBF4-4E6C-B18A-C15EDEB1E4FD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E1BA0324-DBF7-4411-B75F-28DEF5820479}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1BA0324-DBF7-4411-B75F-28DEF5820479}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1BA0324-DBF7-4411-B75F-28DEF5820479}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1BA0324-DBF7-4411-B75F-28DEF5820479}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A93B88D2-8787-4B9C-A583-B52FBCC78B47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A93B88D2-8787-4B9C-A583-B52FBCC78B47}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A93B88D2-8787-4B9C-A583-B52FBCC78B47}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A93B88D2-8787-4B9C-A583-B52FBCC78B47}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFB41D7A-FBF4-4E6C-B18A-C15EDEB1E4FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFB41D7A-FBF4-4E6C-B18A-C15EDEB1E4FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFB41D7A-FBF4-4E6C-B18A-C15EDEB1E4FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFB41D7A-FBF4-4E6C-B18A-C15EDEB1E4FD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C9224CA4-20EC-43AD-A94A-2C42B9572B54}
+	EndGlobalSection
+EndGlobal

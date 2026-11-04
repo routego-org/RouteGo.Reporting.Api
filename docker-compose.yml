@@ -1,0 +1,98 @@
+# LOCAL DEVELOPMENT ONLY — nothing here touches a real AWS account.
+#   docker compose up -d                                  # Postgres + migrations + LocalStack + Reporting
+#   docker compose up -d postgres migrate localstack      # dependencies only, then: dotnet run --project RouteGo.Reporting.Api
+#
+# The EC2 deployment uses deploy/ec2/ on routego-secure, not this file.
+#
+# Reporting is fed by Booking, Payment and Fleet through reporting-q. Run those services (or put an
+# event on the queue by hand) and watch the figures move:
+#   docker compose exec localstack awslocal sqs send-message \
+#        --queue-url http://localhost:4566/000000000000/reporting-schedule-q --message-body '{"settlementDate":"2026-10-02"}'
+#   (settles that day now; an empty body settles yesterday in India Standard Time)
+# Reading a report needs an Admin access token from Identity (:5001), which this stack does not start.
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: routego_reporting
+      POSTGRES_USER: reporting_user
+      POSTGRES_PASSWORD: reporting_local   # local-only throwaway password
+    ports:
+      - "5435:5432"   # not 5432-5434: the other RouteGo services publish those
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reporting_user -d routego_reporting"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Applies migrations/ once Postgres is up, then exits. Re-run any time: docker compose run --rm migrate
+  migrate:
+    image: postgres:17
+    command: ["bash", "/local/apply-migrations.sh"]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: routego_reporting
+      PGUSER: reporting_user
+      PGPASSWORD: reporting_local
+    volumes:
+      - ./migrations:/migrations:ro
+      - ./local/apply-migrations.sh:/local/apply-migrations.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  localstack:
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: sqs,sns,s3,secretsmanager
+      AWS_DEFAULT_REGION: ap-south-1
+    ports:
+      - "${LOCALSTACK_PORT:-4566}:4566"   # set LOCALSTACK_PORT when another stack already holds 4566
+    volumes:
+      # Runs once LocalStack is ready: creates the topics, the queues + DLQs, the subscriptions and the bucket.
+      - ./local/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
+    healthcheck:
+      # Healthy only after the init script has created the reports bucket, its last step.
+      test: ["CMD-SHELL", "awslocal s3api head-bucket --bucket routego-reports >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  reporting:
+    build: .
+    image: routego/reporting:local
+    ports:
+      - "5008:8080"
+    environment:
+      # Development: SecretResolver reads secrets from configuration (these env vars), never AWS.
+      ASPNETCORE_ENVIRONMENT: Development
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      # Inside the compose network the other services are not on localhost.
+      AwsServiceUrl: http://localstack:4566
+      ReportingQueueUrl: http://localstack:4566/000000000000/reporting-q
+      ReportingDeadLetterQueueUrl: http://localstack:4566/000000000000/reporting-dlq
+      ScheduleQueueUrl: http://localstack:4566/000000000000/reporting-schedule-q
+      ScheduleDeadLetterQueueUrl: http://localstack:4566/000000000000/reporting-schedule-dlq
+      ReportsBucket: routego-reports
+      PresignMinutes: "5"
+      IdentityJwksUrl: http://host.docker.internal:5001/.well-known/jwks.json
+      IdentityIssuer: http://localhost:5001
+      IdentityAudience: routego
+      DB_CONNECTION_PROFILE: ManagedInstances
+      DB_MAX_POOL_SIZE: "10"
+      # The database secret, under its fixed name (Infrastructure/Pgsql/DbSecret.cs), in the platform JSON shape.
+      database/postgresql/routego-reporting-api: '{"host":"postgres","port":5432,"database":"routego_reporting","username":"reporting_user","password":"reporting_local","sslmode":"disable"}'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

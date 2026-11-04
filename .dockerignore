@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.agents/
+.claude/
+.env
+RouteGo.Reporting.Api.Tests/
+RouteGo.Reporting.Api.AppHost/
+specs/

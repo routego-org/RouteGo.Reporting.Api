@@ -1,0 +1,58 @@
+# EC2 deployment of the Reporting API (routego-core). Started by start.sh, which reads the database
+# connection from Secrets Manager first — there is no .env file for this service.
+# Real AWS is used here: Secrets Manager, SQS and S3 through the EC2 instance role (routego-core-role).
+#
+# Reporting is internal: the Web Portal calls it on port 5008 over the private network, and Nginx does
+# not route to it. It reads its events from reporting-q and its nightly trigger from reporting-schedule-q.
+name: routego-reporting
+services:
+  # One-shot helper: applies the SQL migrations, then exits. It is not a long-running container.
+  migrate:
+    image: postgres:17
+    command: ["bash", "/deploy/apply-migrations.sh"]
+    environment:
+      PGHOST: ${REPORTING_DB_HOST:?run start.sh, which reads it from Secrets Manager}
+      PGPORT: ${REPORTING_DB_PORT:?run start.sh}
+      PGDATABASE: ${REPORTING_DB_NAME:?run start.sh}
+      PGUSER: ${REPORTING_DB_USER:?run start.sh}
+      PGPASSWORD: ${REPORTING_DB_PASSWORD:?run start.sh}
+      PGSSLMODE: ${REPORTING_DB_SSLMODE:-require}
+    volumes:
+      - ../../migrations:/migrations:ro
+      - ./apply-migrations.sh:/deploy/apply-migrations.sh:ro
+
+  reporting:
+    image: routego/reporting:latest
+    restart: unless-stopped
+    ports:
+      - "5008:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AWS_REGION: ap-south-1
+      # An always-on process serving concurrent requests; 10 connections is plenty on one small server.
+      DB_CONNECTION_PROFILE: ManagedInstances
+      DB_MAX_POOL_SIZE: "10"
+      # Identity: where the signing keys are published, and what a token must name.
+      IdentityJwksUrl: ${IDENTITY_JWKS_URL:?run start.sh with IDENTITY_JWKS_URL, e.g. http://10.0.1.20:5001/.well-known/jwks.json}
+      IdentityIssuer: ${IDENTITY_ISSUER:?run start.sh with IDENTITY_ISSUER}
+      IdentityAudience: ${IDENTITY_AUDIENCE:-routego}
+      ReportingQueueUrl: https://sqs.ap-south-1.amazonaws.com/${AWS_ACCOUNT_ID:?run start.sh}/reporting-q
+      ReportingDeadLetterQueueUrl: https://sqs.ap-south-1.amazonaws.com/${AWS_ACCOUNT_ID}/reporting-dlq
+      ScheduleQueueUrl: https://sqs.ap-south-1.amazonaws.com/${AWS_ACCOUNT_ID}/reporting-schedule-q
+      ScheduleDeadLetterQueueUrl: https://sqs.ap-south-1.amazonaws.com/${AWS_ACCOUNT_ID}/reporting-schedule-dlq
+      ReportsBucket: routego-reports-${AWS_ACCOUNT_ID}
+      # How long a settlement download link works, in minutes (the spec's default).
+      PresignMinutes: "5"
+      # Workstation GC: a server-GC heap per core is too much on a small instance.
+      DOTNET_gcServer: "0"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  default:
+    name: ec2_default
+    external: true
